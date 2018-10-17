@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8' />
+    <title>Liverpool City Region Ecological Network</title>
+	<link rel="shortcut icon" type="image/png" href="http://www.lcreconet.uk/imap/img/logoico.png"/>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />		
+    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.14.1/mapbox-gl.js'></script>
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.14.1/mapbox-gl.css' rel='stylesheet' />	
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
+	<script src='http://www.lcreconet.uk/imap/js/simple-expand/src/simple-expand.min.js'></script>
+	<script src='https://api.tiles.mapbox.com/mapbox.js/plugins/turf/v2.0.2/turf.min.js'></script>	
+	<script src='http://www.lcreconet.uk/imap/js/jscoord/jscoord.js'></script>
+	<script src="http://www.lcreconet.uk/imap/js/linkifyjs/linkify.min.js"></script>
+	<script src="http://www.lcreconet.uk/imap/js/linkifyjs/linkify-jquery.min.js"></script>
+	<script src="http://www.lcreconet.uk/imap/js/color2color/color2color.min.js"></script>
+	<script src="http://www.lcreconet.uk/imap/js/hd.js"></script>
+</head>
+<body>
+<script src='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v0.1.0/mapbox-gl-geocoder.js'></script>
+<link rel='stylesheet' href='http://www.lcreconet.uk/imap/css/mapbox-geocoder.css' type='text/css' />
+<link href='http://www.lcreconet.uk/imap/css/mm.css' rel='stylesheet' />
+<div id='map'></div>
+<div id="custcontrol">
+<div id="innerbound">
+<pre id='features'></pre></div></div>
+<div id="toolcontainer">
+<div id="cctext" class="cccontent">
+<a href="https://www.mapbox.com/about/maps/" target="_blank">© MapBox </a>
+<a href="http://www.openstreetmap.org/about/" target="_blank">© OpenStreetMap </a>
+<a href="http://www.meas.org.uk/1263" target="_blank">© MEAS </a>
+<a href="https://www.ordnancesurvey.co.uk/business-and-government/public-sector/" target="_blank">© Crown Copyright and database rights 2016 Ordnance Survey 100018192 </a></div>
+<a href="http://www.lcreconet.uk/contact-us/" id="cc" title="Feedback" target="_blank" ><img src="http://www.lcreconet.uk/imap/img/contact15.png"></a>
+<a href="#" id="cc" class="expander" data-expander-target=".cccontent"><img src="http://www.lcreconet.uk/imap/img/cc15.png" title="Layer attribution"></a></div>
+<div id='geocoder-container'></div>
+<div id="panel">
+<div class="positionr">
+<a href="http://www.lcreconet.uk/" target="_blank" ><img id="logo" src="http://www.lcreconet.uk/imap/img/LCREN-100.png" title="LCR EN"></a>
+<div class="inline">
+<div id='coord' class='coord-container'></div>
+<div id='grds' class='coord-container'></div>
+<div id='distance' class='coord-container'></div>
+</div>
+</div>
+<div class="positionr">
+<input type="button" id="Rpt" class="printRpt" value="Print report" onclick="PrintElem('#innerbound')" data-toggle="tooltip" data-placement="right" title="Produce a simple report of queries features." />
+<input type="button" id="snap" class="printRpt" value="Print map" data-toggle="tooltip" data-placement="right" title="Produce a simple map the current view."/>
+</div>
+<div class="positionr">
+<div id="">
+<a href="#" id="measure" class="measure"><img src="http://www.lcreconet.uk/imap/img/measure.png" data-toggle="tooltip" data-placement="right" title="Activate this tool to measure the distance between points on the map."></a>
+<a href="#" id="info" class="info"><img src="http://www.lcreconet.uk/imap/img/infoIco30.png" data-toggle="tooltip" data-placement="right" title="Activate this tool to query features in the map."></a>
+<a href="#" id="ptbuff" class="ptbuff"><img src="http://www.lcreconet.uk/imap/img/ptbuff30.png" data-toggle="tooltip" data-placement="right" title="Activate this tool to add a circle to the map. Use the slider below to adjust the radius."></a>
+<input id="slider" value="10" type="range" min="1" max="300" step="5" data-toggle="tooltip" data-placement="right" title="Use this slider to adjust the radius of a custom circle." />
+</div>
+</div>
+<div class="positionr">
+<nav id="menu" class="menu"></nav>
+</div>
+<div class="positionr">
+<nav id="baseMenu" class="menu" ></nav>
+</div>
+</div>
+<script>
+	
+$('.measure').click(function() {
+	$('.measure').toggleClass('active');
+});
+
+$('.info').click(function() {
+	$('.info').toggleClass('active');
+});
+
+$('.ptbuff').click(function() {
+	$('.ptbuff').toggleClass('active');
+});
+
+mapboxgl.accessToken = '***'; // add mapbox access token here
+mapboxgl.util.getJSON('https://api.mapbox.com/styles/v1/mbbdev/cimf0zmo50006i6m03p8bgyag?access_token=' + mapboxgl.accessToken, function (err, style) {
+    if (err) try { throw err;
+			}catch (e) {
+				document.write(e.message);
+			}
+			
+    style.layers.forEach(function (layer) {
+		layer.visibility = 1;
+        layer.interactive = true;
+    });
+	
+	var bounds = [
+		[-3.949, 53.246], // Southwest coordinates
+		[-2.408, 53.766]  // Northeast coordinates
+	];
+	
+	if (!mapboxgl.supported()) {
+		alert('Your browser does not support WebGL. Please update. You can check WebGL capable browsers here: http://caniuse.com/#feat=webgl');
+		} else {
+	
+    var map = new mapboxgl.Map({
+        container: 'map',
+        style: style,
+        center: [-2.89, 53.45],
+        zoom: 10,
+		maxBounds: bounds,
+		attributionControl: false, //required in terms.
+		preserveDrawingBuffer: true //required to capture map image.
+    });	
+	}
+	
+	//console.log("pitch: "+map.getPitch()); 
+	//console.log("bearing: "+map.getBearing()); //works. use in N arrow?
+
+	document.getElementById("snap").addEventListener("click",screen);
+	function screen(){
+	
+	var dataURL = map.getCanvas('#map').toDataURL("image/jpeg",1.0);
+	
+	var lng = map.getCenter().lng.toString().substring(0,8);
+	var lat = map.getCenter().lat.toString().substring(0,8);
+	var clatlng = '<div class="coord">'+ 'latitude: ' +lat+'; '+'longitude: ' +lng+'</div>';
+		
+	var ll2w = new LatLng(lat, lng);
+		ll2w.WGS84ToOSGB36();
+	var os2w = ll2w.toOSRef();
+		osCoords = '<div class="coord">'+ 'grid ref: ' + os2w.toSixFigureString()+'</div>';
+		cgr = osCoords;
+	
+	var DesSiteColor = map.getPaintProperty('CBA Designated Sites','fill-color');
+	var CBACoastColor = map.getPaintProperty('CBA Coastal','fill-color');
+	var CBAGrassColor = map.getPaintProperty('CBA Grassland','fill-color');
+	var CBAHeathColor = map.getPaintProperty('CBA Heathland','fill-color');
+	var CBAWetColor = map.getPaintProperty('CBA Wetland','fill-color');
+	var CBAGeoColor = map.getPaintProperty('CBA Geological','fill-color');
+	var CBAWoodColor = map.getPaintProperty('CBA Woodland','fill-color');
+	var LineLineColor = map.getPaintProperty('Linear features (line)','fill-color');
+	var LineRegionColor = map.getPaintProperty('Linear features (region)','fill-color');
+	var StepColor = map.getPaintProperty('Stepping Stone','fill-color');
+	var NIAColor = map.getPaintProperty('Nature Improvement Area','fill-color');
+	
+	var simg = new Image();
+	
+	simg.id = 'simg';
+	simg.width = '980';
+	simg.height = '600';
+	simg.src = dataURL;
+	
+	var mywindow = window.open('','layout','height=660,width=980,resizable=yes,scrollbars=yes,status=yes,menubar=yes,toolbar=yes');
+	var is_chrome = Boolean(mywindow.chrome);
+
+	    mywindow.document.write('<!DOCTYPE html><meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"/><head><title>Liverpool City Region: Ecological Network</title>');
+        mywindow.document.write('<link rel="stylesheet" href="http://www.lcreconet.uk/imap/css/scr.css" type="text/css" />');
+        mywindow.document.write('</head><body>');
+		//use color2color to convert hsl values to hex for browser.
+		mywindow.document.write('<div class="container"><img class="limg" src="http://www.lcreconet.uk/imap/img/LCR-EN-120.png" /><div id="back" width="600" height="500"></div><div class="cc">© MapBox © OpenStreetMap © Crown Copyright and database rights 2016 Ordnance Survey 100018192 </div><div class="my-legend"><div class="legend-title">Legend</div><div class="legend-scale"><ul class="legend-labels">');	
+		mywindow.document.write('<li><span style=background:'+color2color(DesSiteColor,"hex")+'></span>CBA Designated Sites</li>');
+		mywindow.document.write('<li><span style=background:'+color2color(CBACoastColor,"hex")+'></span>CBA Coastal</li>');
+		mywindow.document.write('<li><span style=background:'+color2color(CBAGrassColor,"hex")+'></span>CBA Grassland</li>');
+		mywindow.document.write('<li><span style=background:'+color2color(CBAHeathColor,"hex")+'></span>CBA Heathland</li>');
+		mywindow.document.write('<li><span style=background:'+color2color(CBAWetColor,"hex")+'></span>CBA Wetland</li>');
+		mywindow.document.write('<li><span style=background:'+color2color(CBAGeoColor,"hex")+'></span>CBA Geology</li>');
+		mywindow.document.write('<li><span style=background:'+color2color(CBAWoodColor,"hex")+'></span>CBA Woodland</li>');
+		//mywindow.document.write('<li><span style=background:'+color2color(LineLineColor,"hex")+'></span>Linear features (line)</li>');
+		mywindow.document.write('<li><span style=background:'+color2color(LineRegionColor,"hex")+'></span>Linear features</li>');
+		mywindow.document.write('<li><span style=background:'+color2color(StepColor,"hex")+'></span>Stepping Stone Site</li>');
+		mywindow.document.write('<li><span style=background:'+color2color(NIAColor,"hex")+'></span>Nature Improvement Area</li></ul></div>');
+		mywindow.document.write('<div class="legend-source">Source: <a href="http://www.lcreconet.uk/">LCR EN</a></div></div>');
+		mywindow.document.write('<div class="locbox">Map Centre: '+clatlng+cgr+'</div></div>');	
+		mywindow.document.write('</body></html>');
+		//add img works here.
+
+		 //try{
+			//mywindow.document.body.appendChild(simg);
+			//}
+			//catch(e){
+			if (simg.outerHTML) {
+			mywindow.document.getElementById("back").innerHTML = simg.outerHTML;
+			}
+			else {
+			//console.log('not working');
+			}
+			//}
+
+			if (is_chrome) {
+				setTimeout(function () { // wait until all resources loaded 
+						mywindow.document.close();
+						mywindow.focus(); 
+						//mywindow.print();  // change window to winPrint
+						//mywindow.close();// change window to winPrint
+				}, 600);
+			} else {
+
+        mywindow.document.close(); // necessary for IE >= 10
+        mywindow.focus(); // necessary for IE >= 10
+        //mywindow.print();
+        //mywindow.close();
+	
+		}
+        return true;	
+	}
+	
+	var geocoder = new mapboxgl.Geocoder({
+		container: 'geocoder-container',
+		cc: 'GB',
+		proximity: [-2.89, 53.45]
+		});
+		
+	map.addControl(geocoder);
+	
+	map.on('click', function (e) {
+    map.featuresAt(e.point, {
+        radius: 2,
+		layer: lyrlist
+    }, function (err, features) {
+        if (err) try { throw err;
+			}catch (e) {
+				document.write(e.message);
+			}
+		
+		 lng = '';
+		 lat = '';
+		 lng = e.lngLat.lng;
+		 lat = e.lngLat.lat;
+		 lngLat = e.lngLat;
+
+		var tLat = lat.toString().substring(0,8);
+		var tLng = lng.toString().substring(0,9);
+		
+		var coords = '<pre>'+'latitude: ' + tLat + '; longitude: ' + tLng;
+			latlngTxt = coords;
+		
+		var ll2w = new LatLng(lat, lng);
+			ll2w.WGS84ToOSGB36();
+		var os2w = ll2w.toOSRef();
+			osCoords = '<pre>'+ 'grid ref: ' + os2w.toSixFigureString();
+			grTxt = osCoords;
+		
+		if (document.getElementById('info').className == 'info active')
+				{
+		
+		//based on http://stackoverflow.com/questions/35459896/format-complex-nested-objects/35472272
+        var featureList = document.getElementById('features');
+        featureList.innerHTML = '';
+		
+        for (var i = 0; i < features.length; i++) {
+
+            var featureItem = document.createElement('ul');
+            featureItem.textContent = features[i].layer.id;
+            featureList.appendChild(featureItem);
+
+            var propertyList = document.createElement('p');
+            featureItem.appendChild(propertyList);
+
+            var properties = features[i].properties;
+
+            for (var property in properties) {
+			
+                var propertyItem = document.createElement('li');
+                propertyItem.textContent = property + ': ' + properties[property] + '    ';
+                propertyList.appendChild(propertyItem);
+				
+			$('li').linkify({ //convert url text to url hyperlink by scanning through text list items after they have been added to features.
+				target: "_blank",
+				format: function (value, type) {
+				//if (type === 'url' && value.length > 30) {
+				if (type === 'url') { //check url type no longer neccessary to test length.
+				  value = value.slice(31) + ''; //slice set to remove initial url values leave only doc title.
+				}
+				return value;
+				}
+			});	
+		
+            }
+        }
+		
+	}else{
+	//do nothing
+	}
+	
+    });
+
+});
+
+map.on('load', function() {
+	addLayer('CBA - Designated sites', 'CBA Designated Sites');
+	addLayer('CBA - Grassland', 'CBA Grassland');
+	addLayer('CBA - Woodland', 'CBA Woodland');
+	addLayer('CBA - Heathland', 'CBA Heathland');
+	addLayer('CBA - Geological', 'CBA Geological');
+	addLayer('CBA - Wetland', 'CBA Wetland');
+	addLayer('CBA - Coastal', 'CBA Coastal');
+	addLayer('Stepping Stone Site', 'Stepping Stone');
+	addLayer('Linear features (region)', 'Linear features (region)');
+	addLayer('Linear features (line)', 'Linear features (line)');
+	addLayer('Nature Improvement Area', 'Nature Improvement Area');
+	//addLayer('LCR', 'Liverpool City Region'); //not required
+	
+function addLayer(name, id) {
+	
+    var link = document.createElement('a');
+	
+    link.href = '#';
+    link.className = ''; //replace with active for load visible.
+    link.textContent = name;
+	
+	if (id == 'Linear features (line)') {
+	var boxkey = document.createElement('div');
+	var natclr = map.getPaintProperty(id,'line-color');
+	var hexclr = color2color(natclr,"hex");
+	var divbak = "background:"+hexclr+";";
+	} else {
+	var boxkey = document.createElement('div');
+	var natclr = map.getPaintProperty(id,'fill-color');
+	var hexclr = color2color(natclr,"hex");
+	var divbak = "background-color:"+hexclr+";";
+	}
+	
+	boxkey.className = id;
+	boxkey.style = divbak;
+
+    link.onclick = function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        var visibility = map.getLayoutProperty(id, 'visibility');
+
+        if (visibility === 'visible') {
+            map.setLayoutProperty(id, 'visibility', 'none');
+            this.className = '';
+        } else {
+            this.className = 'active';
+            map.setLayoutProperty(id, 'visibility', 'visible');
+        }
+    };
+	
+    var layers = document.getElementById('menu');
+		layers.appendChild(boxkey);
+		layers.appendChild(link);
+		
+}
+	var baselayerList = document.getElementById('baseMenu');
+	addBase('Satellite', 'satellite');
+
+	function addBase(name, id) {
+    var link = document.createElement('a');
+    link.href = '#';
+    link.className = ''; //replace with active for load visible.
+    link.textContent = name;
+	
+	var boximg = document.createElement('img');
+	boximg.src = 'http://www.lcreconet.uk/imap/img/satelliteico.png';
+
+    link.onclick = function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        var visibility = map.getLayoutProperty(id, 'visibility');
+
+        if (visibility === 'visible') {
+            map.setLayoutProperty(id, 'visibility', 'none');
+            this.className = '';
+        } else {
+            this.className = 'active';
+            map.setLayoutProperty(id, 'visibility', 'visible');
+        }
+    };
+
+    var baseLayers = document.getElementById('baseMenu');
+	baseLayers.appendChild(boximg);
+    baseLayers.appendChild(link);
+	} 
+});
+
+	map.on('mousemove', function (e) {
+		 lng = '';
+		 lat = '';
+		 lng = e.lngLat.lng;
+		 lat = e.lngLat.lat;
+		 lngLat = e.lngLat;
+		
+		var tLat = lat.toString().substring(0,8);
+		var tLng = lng.toString().substring(0,9);
+		
+		var coordContainer = document.getElementById('coord');
+		var coords = '<pre>'+'latitude: ' + tLat + '<br>' + 'longitude: ' + tLng;
+			coordContainer.innerHTML = coords;
+		
+		var grContainer = document.getElementById('grds');
+		var ll2w = new LatLng(lat, lng);
+			ll2w.WGS84ToOSGB36();
+		var os2w = ll2w.toOSRef();
+			osCoords = '<pre>'+ 'grid ref: ' + os2w.toSixFigureString();
+			grContainer.innerHTML = osCoords;	
+	});
+	
+	//DISTANCE MEASURER START		
+	var distanceContainer = document.getElementById('distance');
+
+	// GeoJSON object to hold our measurement features
+	var geojson = {
+		"type": "FeatureCollection",
+		"features": []
+	};
+	
+	var marker = {
+		"type": "FeatureCollection",
+		"features": []
+	};
+	
+	// Used to draw a line between points
+	var linestring = {
+		"type": "Feature",
+		"geometry": {
+			"type": "LineString",
+			"coordinates": []
+		}
+	};
+
+	//add styles to point and line objects
+	var styles = [{
+		"id": 'points',
+		"interactive": true,
+		"type": "circle",
+		"source": "geojson",
+		"paint": {
+			"circle-radius": 5,
+			"circle-color": "#000"
+		},
+		"filter": ["in", "$type", "Point"]
+	}, {
+		"type": "line",
+		"source": "geojson",
+		"layout": {
+		  "line-cap": "round",
+		  "line-join": "round"
+		},
+		"paint": {
+		  "line-color": "#000",
+		  "line-width": 2.5
+		},
+		"filter": ["in", "$type", "LineString"]
+	}];
+
+	//load object structure to map
+	map.on('style.load', function() {
+	
+		map.addSource('geojson', {
+			"type": "geojson",
+			"data": geojson
+		});
+
+		// Add styles to the map
+		map.batch(function(batch) {
+			styles.forEach(function(style) {
+				batch.addLayer(style);
+			});
+		});
+		
+		//edit objects in geojson
+		map.on('click', function(e) {
+			map.featuresAt(e.point, {
+				radius: 5,
+				includeGeometry: true,
+				layer: 'points'
+			}, function (err, features) {
+				if (err) return;
+
+				if (document.getElementById('measure').className == 'measure active')
+				{
+				
+				// Remove the linestring from the group
+				// So we can redraw it based on the points collection
+				if (geojson.features.length > 1) geojson.features.pop();
+
+				// Clear the Distance container to populate it with a new value
+				distanceContainer.innerHTML = '';
+
+				// If a marker was clicked, remove it from the object
+				if (features.length) {
+					var id = features[0].properties.id;
+					geojson.features = geojson.features.filter(function(point) {
+						return point.properties.id !== id;
+					});
+				} else { //add point to map
+				
+					var point = {
+								"type": "Feature",
+								"geometry": {
+									"type": "Point",
+									"coordinates": [
+										e.lngLat.lng,
+										e.lngLat.lat
+									]
+								},
+								"properties": {
+									"id": new Date().getTime()
+								}
+					};
+
+						geojson.features.push(point);
+					}
+
+				if (geojson.features.length > 1) {
+					linestring.geometry.coordinates = geojson.features.map(function(point) {
+						return point.geometry.coordinates;
+					});
+
+					geojson.features.push(linestring);
+
+					value.textContent = 'distance: ' + turf.lineDistance(linestring).toLocaleString() + 'km';
+					distanceContainer.appendChild(value);	
+				}
+
+					map.getSource('geojson').setData(geojson);
+					
+								}else{}
+				});
+			});	// map.on click close	
+	}); // map.on load close
+	
+	map.on('style.load', function() {
+	
+	map.addSource('marker', {
+			"type": "geojson",
+			"data": marker
+		});		
+	
+	var rng = document.querySelector("#slider");
+		cr = 10;
+						
+	var listener = function() {
+	  window.requestAnimationFrame(function() {
+		cr = rng.value;
+		map.setPaintProperty('marker', 'circle-radius', cr);
+	  });
+	};
+
+	rng.addEventListener("mousedown", function() {
+	  listener();
+	  rng.addEventListener("mousemove", listener);
+	});
+	rng.addEventListener("mouseup", function() {
+	  rng.removeEventListener("mousemove", listener);
+	});
+	
+	map.on('click', function (p) {
+					map.featuresAt(p.point, {
+						radius: 5,
+						includeGeometry: true,
+						layer: 'marker'
+					}, function (err, features) {
+						if (err) return;
+					
+					if (document.getElementById('ptbuff').className == 'ptbuff active')
+					{
+						
+						map.addLayer({
+							"id": "marker",
+							"source": "marker",
+							"type": "circle",
+							"paint": {
+								'circle-radius': cr,
+								'circle-color': '#088',
+								'circle-opacity': 0.8
+							}
+						});
+						
+					if (geojson.features.length > 1) geojson.features.pop();
+					
+					if (features.length) {
+						var id = features[0].properties.id;
+						geojson.features = geojson.features.filter(function(marker) {
+							return marker.properties.id !== id;
+						});
+						
+					} else {
+					
+						var marker = {
+									"type": "Feature",
+									"geometry": {
+										"type": "Point",
+										"coordinates": [
+											p.lngLat.lng,
+											p.lngLat.lat
+										]
+									},
+									"properties": {
+										"id": new Date().getTime()
+									}
+						};
+						
+										
+						//var rp = prompt("Please enter a search radius in kilometers.", "1");
+						//var buffer = turf.buffer(marker,rp,'kilometers'); //works but produced oval (turf conversion is not geodetic)
+
+												
+						}		
+						map.getSource('marker').setData(marker);
+					} else {
+					map.removeLayer('marker');
+					}
+					
+				});
+			});
+		});
+	
+		map.on('mousemove', function (e) {
+			map.featuresAt(e.point, {
+				radius: 5,
+				layer: 'points'
+			}, function (err, features) {
+				map.getCanvas().style.cursor = (!err && features.length) ? 'pointer' : 'crosshair';
+			});	
+		});	
+			
+});
+</script>
+</body>
+</html>

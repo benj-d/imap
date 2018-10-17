@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+	<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto+Condensed:400|Roboto:400">
+    <title>Liverpool City Region Ecological Network</title>
+    <style>
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+	  
+      #map {
+        height: 100%;
+      }
+	  
+	  .google.mapsgft-info-window { 
+	-webkit-border-radius:20px;
+	-moz-border-radius:20px;
+	-border-radius:20px; 
+}
+	  
+	  .keytheme {
+	-webkit-border-radius:20px;
+	-moz-border-radius:20px;
+	-border-radius:20px;
+}
+	  
+	  .controls {
+  margin-top: 10px;
+  border: 1px solid transparent;
+  border-radius: 2px 0 0 2px;
+  box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  height: 32px;
+  outline: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+#pac-input {
+  background-color: #fff;
+  font-family: Roboto;
+  font-size: 15px;
+  font-weight: 300;
+  margin-left: 12px;
+  padding: 0 11px 0 13px;
+  text-overflow: ellipsis;
+  width: 300px;
+}
+
+#pac-input:focus {
+  border-color: #4d90fe;
+}
+
+.pac-container {
+  font-family: Roboto;
+}
+
+#buffer-input {
+  background-color: #fff;
+  font-family: Roboto;
+  font-size: 15px;
+  font-weight: 300;
+  margin-left: 12px;
+  padding: 0 11px 0 13px;
+  text-overflow: ellipsis;
+  width: 300px;
+}
+
+#buffer-input:focus {
+  border-color: #4d90fe;
+}
+
+.buffer-container {
+  font-family: Roboto;
+}
+
+#type-selector {
+  color: #fff;
+  background-color: #4d90fe;
+  padding: 5px 11px 0px 11px;
+}
+
+#type-selector label {
+  font-family: Roboto;
+  font-size: 13px;
+  font-weight: 300;
+}
+#legend { 
+	position: absolute; 
+	top: 50px; 
+	right: 10px;
+	font-family: Roboto; 
+	font-size: 14px;
+	background-color: #fff;
+	border-style: 2px solid grey;
+	padding: 10px 10px 0px 10px;
+	}
+    </style>
+	<script>
+	
+//global FT layer variables
+  var map;
+  var nia;
+  var coastal;
+  var various;
+  var woodland;
+  var heathland;
+  var wetland;
+  var geological;
+  var grassland;
+  var step;
+
+//global FT layerId variables  
+  var coastalId = '1mKJ9BUv847322goQD38_xYqTjnR9gLNJvahmE19s';
+  var variousId = '1TXn2mX1OU-A67jDBrWN-pHNv8O9KmLRg1S6R15Ge';
+  var woodlandId = '11a_xqTz2QYnEtoygg88idwzTeqR9lN2fpahfWPV4';
+  var heathlandId = '1OKZAtIjosdgNvnB2bYVBtiafimuMSc65CSNIkhMm';
+  var wetlandId = '131uswjiLkME62XKKilBQPZYYvgw4AIlpeBXoAD13';
+  var geologicalId = '1HzmLZm6J9xkBmn0kf1Z92FkRcwWJrEmKUhJLxWXW';
+  var grasslandId = '1EuRu7vc0sCA9iDuO9JmDqO9qizU7nmov0rdNt2Ia';
+  var stepId = '19wDUPW0igRiNGZpLbAP7EJ3-PV5HbVj5xDxCKGcH';
+  var niaId = '12hjgQy9r_UMIVGeWUXbGiJ0RfgxVZsqBfiBcPdQ0';
+  
+ //global variables
+  var meters = document.getElementById('buffer-input').value;
+  
+function initMap() {
+  
+  map = new google.maps.Map(document.getElementById('map'), {
+    center: {lat: 53.45, lng: -2.93},
+    zoom: 11,
+	zoomControl: true,
+	scaleControl: true,
+	mapTypeControl: false,
+	streetViewControl: false,
+	mapTypeId: google.maps.MapTypeId.ROADMAP
+  });
+  
+  // Create the search box and link it to the UI element.
+  var input = document.getElementById('pac-input');
+  var buffer = document.getElementById('buffer-input');
+  var searchBox = new google.maps.places.SearchBox(input);
+  map.controls[google.maps.ControlPosition.TOP_LEFT].push(input);
+  map.controls[google.maps.ControlPosition.TOP_LEFT].push(buffer);
+  
+  // Bias the SearchBox results towards current map's viewport.
+  map.addListener('bounds_changed', function() {
+    searchBox.setBounds(map.getBounds());
+  });
+
+  var markers = [];
+  // [START region_getplaces]
+  // Listen for the event fired when the user selects a prediction and retrieve
+  // more details for that place.
+  searchBox.addListener('places_changed', function() {
+    var places = searchBox.getPlaces();
+
+    if (places.length == 0) {
+      return;
+    }
+
+    // Clear out the old markers.
+    markers.forEach(function(marker) {
+      marker.setMap(null);
+    });
+    markers = [];
+
+    // For each place, get the icon, name and location.
+    var bounds = new google.maps.LatLngBounds();
+    places.forEach(function(place) {
+      var icon = {
+        url: place.icon,
+        size: new google.maps.Size(71, 71),
+        origin: new google.maps.Point(0, 0),
+        anchor: new google.maps.Point(17, 34),
+        scaledSize: new google.maps.Size(25, 25)
+      };
+
+      // Create a marker for each place.
+      markers.push(new google.maps.Marker({
+        map: map,
+        icon: icon,
+        title: place.name,
+        position: place.geometry.location
+      }));
+
+      if (place.geometry.viewport) {
+        // Only geocodes have viewport.
+        bounds.union(place.geometry.viewport);
+      } else {
+        bounds.extend(place.geometry.location);
+      }
+    });
+    map.fitBounds(bounds);
+  });
+  // [END region_getplaces]
+  
+  //start adding geojson (TODO: not working json structure wrong, see google.mapsgle sample)
+  //map.data.loadGeoJson('http://www.activenaturalist.org.uk/lcren/leafmap/data/json_CBAHeathland.js');
+  
+  //start adding kml (TODO: add non data layers as kml overlap)
+  
+  //start adding fusion layers
+  nia = new google.maps.FusionTablesLayer({
+    query: {
+      select: 'geometry',
+      from: niaId,
+    },
+	options:{
+    styleId: 2,
+	templateId: 3
+	}
+  });
+  various = new google.maps.FusionTablesLayer({
+    query: {
+      select: 'geometry',
+      from: variousId,
+    },
+	options:{
+    styleId: 2,
+	templateId: 3
+	}
+  });
+  
+  coastal = new google.maps.FusionTablesLayer({
+    query: {
+      select: 'geometry',
+      from: coastalId,
+    },
+	options:{
+    styleId: 2,
+	templateId: 3
+	}
+  });
+  
+  woodland = new google.maps.FusionTablesLayer({
+    query: {
+      select: 'geometry',
+      from: woodlandId,
+    },
+	options:{
+    styleId: 2,
+	templateId: 3
+	}
+  });
+  
+   heathland = new google.maps.FusionTablesLayer({
+    query: {
+      select: 'geometry',
+      from: heathlandId,
+    },
+	options:{
+    styleId: 2,
+	templateId: 3
+	}
+  });
+  
+   wetland = new google.maps.FusionTablesLayer({
+    query: {
+      select: 'geometry',
+      from: wetlandId,
+    },
+	options:{
+    styleId: 2,
+	templateId: 3
+	}
+  });
+  
+   geological = new google.maps.FusionTablesLayer({
+    query: {
+      select: 'geometry',
+      from: geologicalId,
+    },
+	options:{
+    styleId: 2,
+	templateId: 3
+	}
+  });
+  
+   grassland = new google.maps.FusionTablesLayer({
+    query: {
+      select: 'geometry',
+      from: grasslandId,
+    },
+	options:{
+    styleId: 2,
+	templateId: 3
+	}
+  });
+  
+   step = new google.maps.FusionTablesLayer({
+    query: {
+      select: 'geometry',
+      from: stepId,
+    },
+	options:{
+    styleId: 2,
+	templateId: 3
+	}
+  });
+  
+  
+  
+  <!-- Works but overrides control checkbox
+  //google.maps.event.addListener(map, 'zoom_changed', function() {
+   // zoomLevel = map.getZoom();
+   // if (zoomLevel >= 13) {
+		//  nia.setMap(map);
+		//  coastal.setMap(map);
+		//  various.setMap(map);
+		//  woodland.setMap(map);
+		//  heathland.setMap(map);
+		//  wetland.setMap(map);
+		//  geological.setMap(map);
+		//  grassland.setMap(map);
+		//  step.setMap(map);
+   // } else if (zoomLevel >=10) {
+		//  nia.setMap(map);
+		//  coastal.setMap(map);
+		//  various.setMap(map);
+		//  woodland.setMap(null);
+		//  heathland.setMap(null);
+		//  wetland.setMap(null);
+		//  geological.setMap(map);
+		//  grassland.setMap(null);
+		//  step.setMap(null);
+   // }else {
+		//  nia.setMap(map);
+		//  coastal.setMap(null);
+		//  various.setMap(null);
+		//  woodland.setMap(null);
+		//  heathland.setMap(null);
+		//  wetland.setMap(null);
+		//  geological.setMap(null);
+		//  grassland.setMap(null);
+		//  step.setMap(null);
+    //}
+//});
+
+	//Simple display FT layers
+  //nia.setMap(map);
+  //coastal.setMap(map);
+  //various.setMap(map);
+  //woodland.setMap(map);
+  //heathland.setMap(map);
+  //wetland.setMap(map);
+  //geological.setMap(map);
+  //grassland.setMap(map);
+  //step.setMap(map);
+
+}
+
+    function check() { //checkbox control function
+
+    if(document.getElementById('nia').checked)
+      {nia.setMap(map);}
+    else 
+      {nia.setMap(null);}
+
+    if(document.getElementById('coastal').checked)
+      {coastal.setMap(map);}
+    else 
+      {coastal.setMap(null);}
+
+    if(document.getElementById('various').checked)
+       {various.setMap(map);}
+    else
+       {various.setMap(null);}
+	   
+	   if(document.getElementById('woodland').checked)
+       {woodland.setMap(map);}
+    else
+       {woodland.setMap(null);}
+	   
+	   if(document.getElementById('heathland').checked)
+       {heathland.setMap(map);}
+    else
+       {heathland.setMap(null);}
+
+    if(document.getElementById('wetland').checked)
+      {wetland.setMap(map);}
+    else 
+      {wetland.setMap(null);}
+
+    if(document.getElementById('geological').checked)
+       {geological.setMap(map);}
+    else
+       {geological.setMap(null);}
+	   
+	   if(document.getElementById('grassland').checked)
+       {grassland.setMap(map);}
+    else
+       {grassland.setMap(null);}
+	   
+	   if(document.getElementById('step').checked)
+       {step.setMap(map);}
+    else
+       {step.setMap(null);}
+}
+
+    </script>
+	
+	<script>
+	
+	//check search buffer is a number before actioning search query and clear if not.
+	function checkbuff() {
+	  var bufferVal=document.getElementById('buffer-input').value;
+	  if (bufferVal.match(/^0*([1-9]|([1-9]\d{0,2})|([1-4]\d{3})|(50{3}))|$/)) {
+		alert(bufferVal +" is between 1-5000");
+		//action ftquery
+	  } else {
+		//test failed alert and clear.
+		alert(bufferVal+" is not a number between 1 and 5000");
+		document.getElementById('buffer-input').value = "";
+	  }
+	}
+	
+</script>
+  </head>
+  <body>
+	<input id="pac-input" class="controls" type="text" placeholder="Location search" title="Accepts: location name / street name / postcode" aria-label="Accepts: location name / street name / postcode"/>
+	<input id="buffer-input" class="controls" onchange="checkbuff();" type="text" value="1" placeholder="Enter buffer (1m to 5000m)" title="Accepts: numbers 1 to 5000" aria-label="Accepts: numbers 1 to 5000"/>
+    
+	<div id="map"></div>
+	
+	<div class="keytheme" id="legend">
+	<form method="post">
+	<fieldset>
+	<legend>Core Biodiversity Area</legend>
+	<input type="checkbox" id="coastal" onclick="check()">Coastal</input><br />
+	<input type="checkbox" id="various" onclick="check()">Mosaic</input><br />
+	<input type="checkbox" id="woodland" onclick="check()">Woodland</input><br />
+	<input type="checkbox" id="heathland" onclick="check()">Heathland</input><br />
+	<input type="checkbox" id="wetland" onclick="check()">Wetland</input><br />
+	<input type="checkbox" id="geological" onclick="check()">Geological</input><br />
+	<input type="checkbox" id="grassland" onclick="check()">Grassland</input><br />
+	</fieldset>
+	<fieldset>
+	<legend>Other Layers</legend>
+	<input type="checkbox" id="nia" onclick="check()">NIA</input><br />
+	<input type="checkbox" id="step" onclick="check()">Stepping stone</input><br />
+	</fieldset>
+	<br />
+	</form>
+	</div>
+    
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC7ddrSjQkhjLYXPWbjFA7orlsvLK92Dz4&libraries=places&callback=initMap" async defer>
+    </script>
+	
+  </body>
+</html>

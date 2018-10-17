@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <title>Liverpool City Region Ecological Network</title>	
+		<style>
+	    html, body {
+        height: 900px;
+        margin: 0;
+        padding: 0;
+      }
+	  
+      #map_canvas {
+        height: 600px;
+      }
+	  #report {
+        height: 100%;
+      }
+	</style>
+	<script src="http://maps.googleapis.com/maps/api/js"></script>
+	<script>
+	
+	//global FT layer variables
+  var map;
+  var nia;
+  var coastal;
+  var various;
+  var woodland;
+  var heathland;
+  var wetland;
+  var geological;
+  var grassland;
+  var step;
+
+//global FT layerId variables  
+  var coastalId = '1mKJ9BUv847322goQD38_xYqTjnR9gLNJvahmE19s';
+  var variousId = '1TXn2mX1OU-A67jDBrWN-pHNv8O9KmLRg1S6R15Ge';
+  var woodlandId = '11a_xqTz2QYnEtoygg88idwzTeqR9lN2fpahfWPV4';
+  var heathlandId = '1OKZAtIjosdgNvnB2bYVBtiafimuMSc65CSNIkhMm';
+  var wetlandId = '131uswjiLkME62XKKilBQPZYYvgw4AIlpeBXoAD13';
+  var geologicalId = '1HzmLZm6J9xkBmn0kf1Z92FkRcwWJrEmKUhJLxWXW';
+  var grasslandId = '1EuRu7vc0sCA9iDuO9JmDqO9qizU7nmov0rdNt2Ia';
+  var stepId = '19wDUPW0igRiNGZpLbAP7EJ3-PV5HbVj5xDxCKGcH';
+  var niaId = '12hjgQy9r_UMIVGeWUXbGiJ0RfgxVZsqBfiBcPdQ0';
+  
+function initialize() {
+  var goo       = google.maps,
+      gooKey    = 'AIzaSyDCpV8va7DSNWyXNyIHjBQk3FP2szoDf7E', 
+      
+      //1km should be sufficient
+      meters    = 500,
+      
+      map       = new goo.Map(document.getElementById('map_canvas'),
+                    {
+                      zoom: 11,
+                      center: new goo.LatLng(53.55,-2.89)
+                    }),
+      //we use our own InfoWindow
+      win       = new goo.InfoWindow;
+      
+      //function to load ft-data via JSONP 
+      ftQuery   = function(query,callback){
+                    //a random name for a global function
+                    var fnc     = 'ftCallback'+   new Date().getTime()
+                                               +  Math.round(Math.random()*10000), 
+                        url     = 'https://www.googleapis.com/fusiontables/v2/query?',
+                        params  = {
+                                    sql       : query,
+                                    callback  : fnc,
+                                    key       : gooKey
+                                  },
+                        get     =[],
+                        script  = document.querySelector('head')
+                                    .appendChild(document.createElement('script'));
+                    for(var k in params){
+                      get.push([encodeURIComponent(k),
+                                encodeURIComponent(params[k])
+                               ].join('='));
+                    }
+                    window[fnc]=function(r){
+                      callback(r);
+                      delete window[fnc];
+                      document.querySelector('head').removeChild(script);
+                    }
+                    script.setAttribute('src',url+get.join('&'));
+                               
+                  },           
+				  
+ nia = new goo.FusionTablesLayer({
+    query: {
+      select: 'geometry',
+      from: niaId,
+    },
+	map:map,
+	suppressInfoWindows:true,
+	options:{
+    styleId: 2,
+	templateId: 3
+	}
+  });
+  
+  various = new goo.FusionTablesLayer({
+    query: {
+      select: 'geometry',
+      from: variousId,
+    },
+	map:map,
+	suppressInfoWindows:true,
+	options:{
+    styleId: 2,
+	templateId: 3
+	}
+  });
+  
+  coastal = new goo.FusionTablesLayer({
+    query: {
+      select: 'geometry',
+      from: coastalId,
+    },
+	map:map,
+	suppressInfoWindows:true,
+	options:{
+    styleId: 2,
+	templateId: 3
+	}
+  });
+  
+  woodland = new goo.FusionTablesLayer({
+    query: {
+      select: 'geometry',
+      from: woodlandId,
+    },
+	map:map,
+	suppressInfoWindows:true,
+	options:{
+    styleId: 2,
+	templateId: 3
+	}
+  });
+      
+      
+      goo.event.addListener(nia,'click',function(e){
+        
+        var sql ='SELECT description FROM ' + niaId +
+                 ' WHERE  ST_INTERSECTS(geometry,'+ 
+                 ' CIRCLE(LATLNG(' +e.latLng.toUrlValue()+ '),'+ meters + '))',
+            cb  = function(response){
+              if(response.error){
+              	try{
+                	alert(response.error.errors[0].message);
+                }
+                catch(e){
+                	alert('error while retrieving data from fusion table');
+                }
+                return;
+              }
+              var content = [];
+              for(var r = 0; r < response.rows.length; ++r){
+                content.push(response.rows[r][0]);
+              }
+			  document.getElementById('report').innerHTML = '<ol><li>'+content.join('</li><li>')+'</li></ol>';
+              //open the infowindow with the desired content
+			  //replaced with 'report' div
+             // win.setOptions({
+              //  content:'<ol><li>'+content.join('</li><li>')+'</li></ol>',
+             //   map:map,
+             //   position:e.latLng
+             // });
+            };
+        ftQuery(sql,cb);
+      });
+}
+google.maps.event.addDomListener(window, 'load', initialize);
+</script>
+  </head>
+  <body>
+    <div id="map_canvas"></div>
+	<div id="report"></div>
+  </body>
+</html>
